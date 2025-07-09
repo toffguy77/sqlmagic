@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sqlmagic"
+version = "1.0.0"
+description = "PostgreSQL Analytics MCP Server"
+authors = [{name = "SQLMagic Team"}]
+license = {text = "MIT"}
+requires-python = ">=3.8"
+dependencies = [
+    "mcp>=1.0.0",
+    "psycopg2-binary>=2.9.0",
+    "pandas>=2.0.0",
+    "numpy>=1.24.0",
+    "scipy>=1.10.0",
+    "matplotlib>=3.7.0",
+]
+
+[project.scripts]
+sqlmagic = "sqlmagic.server:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+
+[tool.black]
+line-length = 88
+target-version = ['py38']
+
+[tool.isort]
+profile = "black"
+line_length = 88

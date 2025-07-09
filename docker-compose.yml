@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  sqlmagic:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - LOG_LEVEL=INFO
+      - MAX_CONNECTIONS=10
+      - QUERY_TIMEOUT=30
+    depends_on:
+      - postgres
+    volumes:
+      - ./logs:/app/logs
+
+  postgres:
+    image: postgres:13
+    environment:
+      POSTGRES_DB: testdb
+      POSTGRES_USER: testuser
+      POSTGRES_PASSWORD: testpass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
