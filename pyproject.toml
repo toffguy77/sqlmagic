@@ -1,36 +1,51 @@
-[build-system]
-requires = ["setuptools>=45", "wheel"]
-build-backend = "setuptools.build_meta"
-
-[project]
+[tool.poetry]
 name = "sqlmagic"
 version = "1.0.0"
 description = "PostgreSQL Analytics MCP Server"
-authors = [{name = "SQLMagic Team"}]
-license = {text = "MIT"}
-requires-python = ">=3.8"
-dependencies = [
-    "mcp>=1.0.0",
-    "psycopg2-binary>=2.9.0",
-    "pandas>=2.0.0",
-    "numpy>=1.24.0",
-    "scipy>=1.10.0",
-    "matplotlib>=3.7.0",
-]
+authors = ["ruaspdp"]
+readme = "README.md"
+packages = [{include = "sqlmagic", from = "src"}]
 
-[project.scripts]
+[tool.poetry.dependencies]
+python = "^3.10"
+mcp = "^0.9.0"
+psycopg2-binary = "^2.9.0"
+pandas = "^2.0.0"
+numpy = "^1.24.0"
+scipy = "^1.10.0"
+matplotlib = "^3.7.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.0.0"
+pytest-asyncio = "^0.21.0"
+black = "^22.0.0"
+isort = "^5.10.0"
+ruff = "^0.1.0"
+
+[tool.poetry.scripts]
 sqlmagic = "sqlmagic.server:main"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+pythonpath = ["src"]
 
 [tool.black]
 line-length = 88
-target-version = ['py38']
+target-version = ['py310']
 
 [tool.isort]
 profile = "black"
 line_length = 88
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+select = ["E", "W", "F"]
+ignore = ["E501"]

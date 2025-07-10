@@ -1,19 +1,21 @@
 .PHONY: install test lint format clean build docker
 
 install:
-	pip install -e .[dev]
+	poetry install --with dev
 
 test:
-	pytest tests/ -v
+	poetry install
+	poetry run pytest tests/ -v
 
 lint:
-	black --check .
-	isort --check-only .
-	flake8 src/
+	poetry run black --check .
+	poetry run isort --check-only .
+	poetry run ruff check src/
 
 format:
-	black .
-	isort .
+	poetry run black .
+	poetry run isort .
+	poetry run ruff check src/ --fix
 
 clean:
 	rm -rf build/ dist/ *.egg-info/
@@ -21,7 +23,10 @@ clean:
 	find . -type f -name "*.pyc" -delete
 
 build:
-	python -m build
+	poetry build
+
+run:
+	poetry run sqlmagic
 
 docker:
 	docker build -t sqlmagic .
