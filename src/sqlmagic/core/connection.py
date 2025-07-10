@@ -41,8 +41,17 @@ class ConnectionManager:
             logger.error(f"Connection failed: {e}")
             raise ConnectionError(f"Failed to connect: {e}")
 
-    @contextmanager
     def get_connection(self, name: str):
+        if name not in self.pools:
+            raise ConnectionError(f"Connection {name} not found")
+        return self.pools[name].getconn()
+
+    def return_connection(self, name: str, conn):
+        if name in self.pools and conn:
+            self.pools[name].putconn(conn)
+
+    @contextmanager
+    def get_connection_context(self, name: str):
         if name not in self.pools:
             raise ConnectionError(f"Connection {name} not found")
         conn = None
@@ -67,7 +76,7 @@ class ConnectionManager:
         if name not in self.pools:
             return False
         try:
-            with self.get_connection(name) as conn:
+            with self.get_connection_context(name) as conn:
                 cursor = conn.cursor()
                 cursor.execute("SELECT 1")
                 return True

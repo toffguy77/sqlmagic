@@ -1,36 +1,37 @@
 import asyncio
 import logging
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from mcp.server import Server
-from mcp.server.models import InitializationOptions
 from mcp.server.stdio import stdio_server
-from mcp.types import TextContent, Tool
+from mcp import Tool
+from mcp.types import TextContent
 
 from .core.config import Config
 from .core.connection import ConnectionManager
-from .tools.analytics import (
-    DetectAnomaliesTool,
-    FindCorrelationsTool,
-    TimeSeriesAnalysisTool,
-)
 from .tools.basic import (
     AnalyzeDataTool,
     ConnectTool,
     DescribeTableTool,
+    ExecuteQueryTool,
     ExploreTablesTool,
     SampleDataTool,
+)
+from .tools.analytics import (
+    DetectAnomaliesTool,
+    FindCorrelationsTool,
+    TimeSeriesAnalysisTool,
 )
 
 logger = logging.getLogger(__name__)
 
 
 class PostgreSQLMCPServer:
-    def __init__(self, config: Config = None):
+    def __init__(self, config: Optional[Config] = None):
         self.config = config or Config.from_env()
-        self.server = Server("postgresql-analytics")
         self.connection_manager = ConnectionManager()
         self.tools = self._init_tools()
+        self.server = Server("postgresql-analytics")
         self._setup_handlers()
 
     def _init_tools(self):
@@ -40,15 +41,10 @@ class PostgreSQLMCPServer:
             "describe_table": DescribeTableTool(self.connection_manager, self.config),
             "sample_data": SampleDataTool(self.connection_manager, self.config),
             "analyze_data": AnalyzeDataTool(self.connection_manager, self.config),
-            "find_correlations": FindCorrelationsTool(
-                self.connection_manager, self.config
-            ),
-            "detect_anomalies": DetectAnomaliesTool(
-                self.connection_manager, self.config
-            ),
-            "time_series_analysis": TimeSeriesAnalysisTool(
-                self.connection_manager, self.config
-            ),
+            "execute_query": ExecuteQueryTool(self.connection_manager, self.config),
+            "find_correlations": FindCorrelationsTool(self.connection_manager, self.config),
+            "detect_anomalies": DetectAnomaliesTool(self.connection_manager, self.config),
+            "time_series_analysis": TimeSeriesAnalysisTool(self.connection_manager, self.config),
         }
 
     def _setup_handlers(self):
@@ -57,7 +53,7 @@ class PostgreSQLMCPServer:
             return [
                 Tool(
                     name="connect_database",
-                    description="Connect to PostgreSQL",
+                    description="Connect to PostgreSQL database",
                     inputSchema={
                         "type": "object",
                         "properties": {
@@ -79,7 +75,7 @@ class PostgreSQLMCPServer:
                 ),
                 Tool(
                     name="explore_tables",
-                    description="List tables",
+                    description="List all tables in the database",
                     inputSchema={
                         "type": "object",
                         "properties": {"connection_name": {"type": "string"}},
@@ -88,7 +84,7 @@ class PostgreSQLMCPServer:
                 ),
                 Tool(
                     name="describe_table",
-                    description="Table structure",
+                    description="Get table structure and column information",
                     inputSchema={
                         "type": "object",
                         "properties": {
@@ -100,7 +96,7 @@ class PostgreSQLMCPServer:
                 ),
                 Tool(
                     name="sample_data",
-                    description="Sample data",
+                    description="Get sample data from a table",
                     inputSchema={
                         "type": "object",
                         "properties": {
@@ -113,7 +109,7 @@ class PostgreSQLMCPServer:
                 ),
                 Tool(
                     name="analyze_data",
-                    description="Data analysis",
+                    description="Perform basic data analysis on a table",
                     inputSchema={
                         "type": "object",
                         "properties": {
@@ -124,8 +120,21 @@ class PostgreSQLMCPServer:
                     },
                 ),
                 Tool(
+                    name="execute_query",
+                    description="Execute a SELECT SQL query",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "connection_name": {"type": "string"},
+                            "query": {"type": "string"},
+                            "limit": {"type": "integer", "default": 100},
+                        },
+                        "required": ["connection_name", "query"],
+                    },
+                ),
+                Tool(
                     name="find_correlations",
-                    description="Find correlations",
+                    description="Find correlations between numeric columns in a table",
                     inputSchema={
                         "type": "object",
                         "properties": {
@@ -137,7 +146,7 @@ class PostgreSQLMCPServer:
                 ),
                 Tool(
                     name="detect_anomalies",
-                    description="Detect anomalies",
+                    description="Detect anomalies in a numeric column using Z-score",
                     inputSchema={
                         "type": "object",
                         "properties": {
@@ -150,7 +159,7 @@ class PostgreSQLMCPServer:
                 ),
                 Tool(
                     name="time_series_analysis",
-                    description="Time series analysis",
+                    description="Perform basic time series analysis on date and value columns",
                     inputSchema={
                         "type": "object",
                         "properties": {
@@ -159,20 +168,13 @@ class PostgreSQLMCPServer:
                             "date_column": {"type": "string"},
                             "value_column": {"type": "string"},
                         },
-                        "required": [
-                            "connection_name",
-                            "table_name",
-                            "date_column",
-                            "value_column",
-                        ],
+                        "required": ["connection_name", "table_name", "date_column", "value_column"],
                     },
                 ),
             ]
 
         @self.server.call_tool()
-        async def handle_call_tool(
-            name: str, arguments: Dict[str, Any]
-        ) -> List[TextContent]:
+        async def handle_call_tool(name: str, arguments: Dict[str, Any]) -> List[TextContent]:
             try:
                 if name in self.tools:
                     return await self.tools[name].execute(**arguments)
@@ -186,22 +188,20 @@ class PostgreSQLMCPServer:
             await self.server.run(
                 read_stream,
                 write_stream,
-                InitializationOptions(
-                    server_name="postgresql-analytics",
-                    server_version="1.0.0",
-                    capabilities=self.server.get_capabilities(
-                        notification_options=None, experimental_capabilities=None
-                    ),
-                ),
+                self.server.create_initialization_options()
             )
 
 
-async def main():
+async def async_main():
     logging.basicConfig(level=logging.INFO)
-    config = Config.from_env()
-    server = PostgreSQLMCPServer(config)
+    server = PostgreSQLMCPServer()
     await server.run()
 
 
+def main():
+    """Entry point for poetry script"""
+    asyncio.run(async_main())
+
+
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
